@@ -1,0 +1,23 @@
+graph TB
+subgraph External_Users
+DEV[Developer]
+AI[AI Assistant]
+TEAM[Development Team]
+end
+
+subgraph Memory_Bank_System
+MB[Memory Bank Core]
+end
+
+subgraph External_Systems
+CURSOR[Cursor IDE]
+GIT[Git Repository]
+DOCKER[Docker Environment]
+end
+
+DEV --> MB
+AI --> MB
+TEAM --> MB
+MB --> CURSOR
+MB --> GIT
+MB --> DOCKER

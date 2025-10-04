@@ -1,0 +1,27 @@
+graph TB
+subgraph Memory_Bank_System
+MB[Memory Bank Core]
+AF[Advanced Features]
+RS[Rust Microservices]
+DG[Documentation Generator]
+end
+
+subgraph Data_Storage
+FS[File System]
+DB[Database]
+CACHE[Cache]
+end
+
+subgraph External_Services
+API[External APIs]
+MONITOR[Monitoring]
+end
+
+MB --> AF
+MB --> RS
+MB --> DG
+MB --> FS
+MB --> DB
+RS --> CACHE
+RS --> API
+RS --> MONITOR

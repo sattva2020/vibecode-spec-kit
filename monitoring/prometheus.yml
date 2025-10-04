@@ -1,0 +1,102 @@
+# ===========================================
+# Prometheus Configuration for RAG System
+# ===========================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Supabase Database
+  - job_name: 'supabase-db'
+    static_configs:
+      - targets: ['supabase-db:5432']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Supabase Kong API Gateway
+  - job_name: 'supabase-kong'
+    static_configs:
+      - targets: ['supabase-kong:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Supabase Realtime
+  - job_name: 'supabase-realtime'
+    static_configs:
+      - targets: ['supabase-realtime:4000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Ollama
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama:11434']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # LightRAG
+  - job_name: 'lightrag'
+    static_configs:
+      - targets: ['lightrag:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # n8n
+  - job_name: 'n8n'
+    static_configs:
+      - targets: ['n8n:5678']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Intelligent N8N API
+  - job_name: 'intelligent-n8n-api'
+    static_configs:
+      - targets: ['intelligent-n8n-api:8000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # RAG Proxy
+  - job_name: 'rag-proxy'
+    static_configs:
+      - targets: ['rag-proxy:8080']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Docker containers
+  - job_name: 'docker-containers'
+    static_configs:
+      - targets: ['docker:9323']
+    scrape_interval: 30s
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Recording rules for performance metrics
+rule_files:
+  - "rag_system_rules.yml"

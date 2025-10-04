@@ -1,0 +1,436 @@
+version: "3.8"
+
+services:
+  # ===========================================
+  # SUPABASE STACK
+  # ===========================================
+  supabase-db:
+    image: pgvector/pgvector:pg15
+    container_name: rag-supabase-db
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      PGUSER: ${POSTGRES_USER:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data:Z
+      - ./supabase/init.sql:/docker-entrypoint-initdb.d/init.sql:Z
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-network
+
+  supabase-kong:
+    image: kong:2.8.1
+    container_name: rag-supabase-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+    volumes:
+      - ./supabase/kong.yml:/var/lib/kong/kong.yml:ro
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - supabase-db
+    networks:
+      - rag-network
+
+  supabase-realtime:
+    image: supabase/realtime:2.25.35
+    container_name: rag-supabase-realtime
+    environment:
+      PORT: 4000
+      DB_HOST: supabase-db
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
+      FLY_ALLOC_ID: fly123
+      FLY_APP_NAME: realtime
+      SECRET_KEY_BASE: UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILSCALE: "false"
+      DNS_NODES: "''"
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - supabase-db
+    networks:
+      - rag-network
+
+  # ===========================================
+  # AI SERVICES
+  # ===========================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_GRAPH_MODEL=nomic-embed-text
+      - OLLAMA_INDEX_MODEL=qwen2.5-coder:1.5b
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rag-network
+    deploy:
+      resources:
+        reservations:
+          memory: 1G  # Уменьшено для только графа БД
+        limits:
+          memory: 4G  # Уменьшено для только графа БД
+
+  lightrag:
+    build:
+      context: ./lightrag
+      dockerfile: Dockerfile
+    container_name: rag-lightrag
+    environment:
+      - LIGHTRAG_HOST=0.0.0.0
+      - LIGHTRAG_PORT=8000
+      - SUPABASE_URL=http://supabase-db:5432
+      - SUPABASE_KEY=${SUPABASE_ANON_KEY:-your-anon-key}
+      - OLLAMA_URL=http://ollama:11434
+    volumes:
+      - lightrag_data:/workspace/lightrag
+      - lightrag_models:/workspace/models
+    ports:
+      - "8001:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - supabase-db
+      - ollama
+    networks:
+      - rag-network
+    deploy:
+      resources:
+        reservations:
+          memory: 1G
+        limits:
+          memory: 4G
+
+  # ===========================================
+  # WORKFLOW ENGINE
+  # ===========================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: rag-n8n
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=UTC
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-password}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-your-encryption-key}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=supabase-db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-postgres}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-postgres}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - supabase-db
+    networks:
+      - rag-network
+
+  # ===========================================
+  # MONITORING STACK
+  # ===========================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rag-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rag-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rag-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - prometheus
+    networks:
+      - rag-network
+
+  # ===========================================
+  # INTELLIGENT N8N SYSTEM API
+  # ===========================================
+  intelligent-n8n-api:
+    build:
+      context: ./intelligent-n8n-system
+      dockerfile: Dockerfile
+    container_name: rag-intelligent-n8n-api
+    environment:
+      - SUPABASE_URL=http://supabase-db:5432
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-your-anon-key}
+      - LIGHTRAG_URL=http://lightrag:8000
+      - OLLAMA_URL=http://ollama:11434
+      - N8N_URL=http://n8n:5678
+      - N8N_USER=${N8N_USER:-admin}
+      - N8N_PASSWORD=${N8N_PASSWORD:-password}
+      - PROMETHEUS_URL=http://prometheus:9090
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - intelligent_n8n_data:/app/data
+      - ./intelligent-n8n-system/logs:/app/logs
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - supabase-db
+      - lightrag
+      - ollama
+      - n8n
+    networks:
+      - rag-network
+    deploy:
+      resources:
+        reservations:
+          memory: 512M
+        limits:
+          memory: 2G
+
+  # ===========================================
+  # AI ROUTER SERVICE
+  # ===========================================
+  ai-router:
+    build:
+      context: ./ai-router
+      dockerfile: Dockerfile
+    container_name: rag-ai-router
+    environment:
+      - AI_ROUTER_HOST=0.0.0.0
+      - AI_ROUTER_PORT=8081
+      - OLLAMA_URL=http://ollama:11434
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-3-5-sonnet-20241022}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4-turbo-preview}
+      - OPENAI_CODE_MODEL=${OPENAI_CODE_MODEL:-gpt-4-code-interpreter}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_MODEL=${GOOGLE_MODEL:-gemini-pro}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rag-network
+    deploy:
+      resources:
+        reservations:
+          memory: 256M
+        limits:
+          memory: 1G
+
+  # ===========================================
+  # AI ROUTER SERVICE (Python)
+  # ===========================================
+  ai-router:
+    build:
+      context: ./ai-router
+      dockerfile: Dockerfile
+    container_name: rag-ai-router
+    environment:
+      - AI_ROUTER_HOST=0.0.0.0
+      - AI_ROUTER_PORT=8081
+      - AI_DEFAULT_PROVIDER=${AI_DEFAULT_PROVIDER:-claude}
+      - AI_FALLBACK_PROVIDER=${AI_FALLBACK_PROVIDER:-openai}
+      # Anthropic Claude
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-3-5-sonnet-20241022}
+      - CLAUDE_MAX_TOKENS=${CLAUDE_MAX_TOKENS:-8192}
+      # OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4-turbo-preview}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS:-4096}
+      # Cursor IDE Integration (ВАШИ ПЛАТНЫЕ ПОДПИСКИ!)
+      - CURSOR_API_KEY=${CURSOR_API_KEY}
+      - CURSOR_API_URL=${CURSOR_API_URL:-https://api.cursor.sh/v1}
+      - CURSOR_SESSION_NAME=${CURSOR_SESSION_NAME:-n8n-ai-router}
+      # GitHub Copilot Integration (ВАША ПЛАТНАЯ ПОДПИСКА!)
+      - GITHUB_COPILOT_API_KEY=${GITHUB_COPILOT_API_KEY}
+      - GITHUB_COPILOT_API_URL=${GITHUB_COPILOT_API_URL:-https://api.githubcopilot.com/v1}
+      - GITHUB_COPILOT_SESSION_NAME=${GITHUB_COPILOT_SESSION_NAME:-n8n-ai-router}
+      - AI_PROVIDER_MODE=${AI_PROVIDER_MODE:-subscription_first}
+      # Ollama (только для графа БД)
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_GRAPH_MODEL=${OLLAMA_GRAPH_MODEL:-nomic-embed-text}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - ollama
+    networks:
+      - rag-network
+
+  # ===========================================
+  # RAG PROXY (RUST) - Updated for AI Router
+  # ===========================================
+  rag-proxy:
+    build:
+      context: ./rag-proxy
+      dockerfile: Dockerfile
+    container_name: rag-proxy
+    environment:
+      - RAG_PROXY_HOST=0.0.0.0
+      - RAG_PROXY_PORT=8080
+      - INTELLIGENT_N8N_URL=http://intelligent-n8n-api:8000
+      - AI_ROUTER_URL=http://ai-router:8081
+      - SUPABASE_URL=http://supabase-db:5432
+      - LIGHTRAG_URL=http://lightrag:8000
+      - OLLAMA_URL=http://ollama:11434
+      - N8N_URL=http://n8n:5678
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - intelligent-n8n-api
+      - ai-router
+    networks:
+      - rag-network
+
+# ===========================================
+# VOLUMES
+# ===========================================
+volumes:
+  supabase_db_data:
+    driver: local
+  ollama_data:
+    driver: local
+  lightrag_data:
+    driver: local
+  lightrag_models:
+    driver: local
+  n8n_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  intelligent_n8n_data:
+    driver: local
+
+# ===========================================
+# NETWORKS
+# ===========================================
+networks:
+  rag-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

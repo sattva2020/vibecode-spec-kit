@@ -1,0 +1,109 @@
+{
+  "assessment": {
+    "quality_level": "enterprise",
+    "timestamp": "2025-10-04T18:05:40.877380",
+    "quality_gates": [
+      {
+        "gate_name": "code_quality",
+        "score": 83.33333333333333,
+        "passed": true,
+        "checks": [
+          {
+            "check": "linting",
+            "score": 85.0,
+            "passed": true
+          },
+          {
+            "check": "complexity",
+            "score": 75.0,
+            "passed": true
+          },
+          {
+            "check": "coverage",
+            "score": 90.0,
+            "passed": true
+          }
+        ],
+        "issues": []
+      },
+      {
+        "gate_name": "security",
+        "score": 90.66666666666667,
+        "passed": true,
+        "checks": [
+          {
+            "check": "vulnerabilities",
+            "score": 95.0,
+            "passed": true
+          },
+          {
+            "check": "security_practices",
+            "score": 85.0,
+            "passed": true
+          },
+          {
+            "check": "dependency_security",
+            "score": 92.0,
+            "passed": true
+          }
+        ],
+        "issues": []
+      },
+      {
+        "gate_name": "performance",
+        "score": 80.0,
+        "passed": true,
+        "checks": [
+          {
+            "check": "response_time",
+            "score": 80.0,
+            "passed": true
+          },
+          {
+            "check": "memory_usage",
+            "score": 75.0,
+            "passed": true
+          },
+          {
+            "check": "cpu_usage",
+            "score": 85.0,
+            "passed": true
+          }
+        ],
+        "issues": []
+      }
+    ],
+    "compliance_check": {
+      "total_rules": 3,
+      "passed": 2,
+      "failed": 1,
+      "violations": [
+        {
+          "rule_name": "essential_documentation",
+          "rule_type": "documentation",
+          "passed": false,
+          "message": "Missing required documentation: ['memory-bank/projectbrief.md']",
+          "details": {
+            "missing_docs": [
+              "memory-bank/projectbrief.md"
+            ]
+          }
+        }
+      ],
+      "score": 66.66666666666666,
+      "timestamp": "2025-10-04T18:05:40.877380"
+    },
+    "overall_score": 75.66666666666666,
+    "passed": false
+  },
+  "recommendations": [
+    "Address compliance violations: 1 violations found",
+    "Quality is acceptable but can be improved"
+  ],
+  "next_steps": [
+    "Address quality gate failures",
+    "Fix compliance violations",
+    "Re-run quality assessment after fixes"
+  ],
+  "generated_at": "2025-10-04T18:05:40.879368"
+}

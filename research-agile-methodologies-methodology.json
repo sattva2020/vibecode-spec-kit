@@ -1,0 +1,49 @@
+{
+  "topic": "Agile methodologies",
+  "depth": "deep",
+  "status": "template_generated",
+  "created_at": "2025-10-04T17:14:35.736202",
+  "research_fields": {
+    "overview": {
+      "description": "Research overview and objectives",
+      "required": true,
+      "type": "text"
+    },
+    "methodology": {
+      "description": "Research methodology and approach",
+      "required": true,
+      "type": "text"
+    },
+    "sources": {
+      "description": "Research sources and references",
+      "required": true,
+      "type": "list"
+    },
+    "findings": {
+      "description": "Key research findings",
+      "required": true,
+      "type": "text"
+    },
+    "recommendations": {
+      "description": "Research recommendations and next steps",
+      "required": false,
+      "type": "text"
+    }
+  },
+  "validation_rules": {
+    "required_fields": [
+      "overview",
+      "methodology",
+      "sources",
+      "findings"
+    ],
+    "min_source_count": 3,
+    "min_finding_length": 100,
+    "max_research_age_days": 365
+  },
+  "metadata": {
+    "template_type": "base_research",
+    "version": "1.0.0",
+    "generated_by": "research_engine"
+  }
+}

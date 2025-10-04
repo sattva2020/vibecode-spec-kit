@@ -1,0 +1,150 @@
+_format_version: "1.1"
+
+consumers:
+  - username: rag-system
+    custom_id: rag-system-consumer
+    keyauth_credentials:
+      - key: your-api-key-here
+
+services:
+  - name: supabase-auth
+    url: http://supabase-auth:9999/
+    routes:
+      - name: auth-route
+        strip_path: true
+        paths:
+          - /auth/v1/
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - X-Auth-Token
+          credentials: true
+
+  - name: supabase-rest
+    url: http://supabase-rest:3000/
+    routes:
+      - name: rest-route
+        strip_path: true
+        paths:
+          - /rest/v1/
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - X-Auth-Token
+          credentials: true
+
+  - name: supabase-realtime
+    url: http://supabase-realtime:4000/
+    routes:
+      - name: realtime-route
+        strip_path: true
+        paths:
+          - /realtime/v1/
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - X-Auth-Token
+          credentials: true
+
+  - name: supabase-storage
+    url: http://supabase-storage:5000/
+    routes:
+      - name: storage-route
+        strip_path: true
+        paths:
+          - /storage/v1/
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          headers:
+            - Accept
+            - Accept-Version
+            - Content-Length
+            - Content-MD5
+            - Content-Type
+            - Date
+            - X-Auth-Token
+          credentials: true
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - X-Auth-Token
+      credentials: true

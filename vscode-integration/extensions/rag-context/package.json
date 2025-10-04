@@ -1,0 +1,122 @@
+{
+  "name": "rag-context-provider",
+  "displayName": "RAG Context Provider",
+  "description": "AI-powered coding with LightRAG, Supabase & n8n integration",
+  "version": "1.0.0",
+  "publisher": "vibecode",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Programming Languages",
+    "Snippets"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "rag.searchContext",
+        "title": "RAG: Search Context"
+      },
+      {
+        "command": "rag.indexFile",
+        "title": "RAG: Index Current File"
+      },
+      {
+        "command": "rag.indexWorkspace",
+        "title": "RAG: Index Entire Workspace"
+      },
+      {
+        "command": "rag.getExamples",
+        "title": "RAG: Get Code Examples"
+      },
+      {
+        "command": "rag.triggerN8n",
+        "title": "RAG: Trigger n8n Workflow"
+      },
+      {
+        "command": "rag.explainCode",
+        "title": "RAG: Explain Selected Code"
+      },
+      {
+        "command": "rag.refactorWithContext",
+        "title": "RAG: Refactor with Context"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "rag.searchContext",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      },
+      {
+        "command": "rag.explainCode",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "editorHasSelection"
+      }
+    ],
+    "configuration": {
+      "title": "RAG Context Provider",
+      "properties": {
+        "rag.proxyUrl": {
+          "type": "string",
+          "default": "http://localhost:9000",
+          "description": "RAG Proxy server URL"
+        },
+        "rag.autoIndex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically index files on save"
+        },
+        "rag.enableInlineCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable RAG-powered inline completions"
+        },
+        "rag.contextWindowSize": {
+          "type": "number",
+          "default": 5,
+          "description": "Number of context items to fetch"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rag-explorer",
+          "title": "RAG Context",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "rag-explorer": [
+        {
+          "id": "ragContextView",
+          "name": "Context Search"
+        },
+        {
+          "id": "ragExamplesView",
+          "name": "Code Examples"
+        },
+        {
+          "id": "ragWorkflowsView",
+          "name": "n8n Workflows"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "eventsource": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^20.0.0"
+  }
+}

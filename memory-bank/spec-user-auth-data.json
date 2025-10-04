@@ -1,0 +1,6 @@
+{
+  "title": "user-auth",
+  "description": "Implement comprehensive user authentication system with OAuth2 support and role-based access control",
+  "complexity_level": 3,
+  "template_type": "spec"
+}

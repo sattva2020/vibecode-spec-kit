@@ -1,0 +1,1 @@
+export interface ProjectInfo {name: string;path: string;type: string;files: string[];dependencies: string[];lastModified: Date;}export interface ProjectAnalyzer {analyzeProject(path: string): Promise<ProjectInfo>;extractMetadata(filePath: string): Promise<any>;detectArchitecture(filePath: string): Promise<string[]>;}

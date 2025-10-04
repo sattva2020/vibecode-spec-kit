@@ -1,0 +1,94 @@
+{
+  "summary": {
+    "total_tests": 6,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 2,
+    "success_rate": 66.66666666666666,
+    "total_duration": 3.9379869999999997,
+    "suite_summaries": [
+      {
+        "suite_name": "CLI Tests",
+        "total_tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "total_duration": 1.829657
+      },
+      {
+        "suite_name": "Template Tests",
+        "total_tests": 2,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 2,
+        "success_rate": 0.0,
+        "total_duration": 0.002
+      },
+      {
+        "suite_name": "Workflow Tests",
+        "total_tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "success_rate": 100.0,
+        "total_duration": 2.10633
+      }
+    ],
+    "timestamp": "2025-10-04T18:05:32.742062"
+  },
+  "test_results": [
+    {
+      "test_name": "cli_help",
+      "status": "passed",
+      "message": "Test passed",
+      "duration": 0.734024,
+      "timestamp": "2025-10-04T18:05:29.537098",
+      "details": {}
+    },
+    {
+      "test_name": "status_command",
+      "status": "passed",
+      "message": "Test passed",
+      "duration": 0.507071,
+      "timestamp": "2025-10-04T18:05:30.044169",
+      "details": {}
+    },
+    {
+      "test_name": "spec_preview",
+      "status": "passed",
+      "message": "Test passed",
+      "duration": 0.588562,
+      "timestamp": "2025-10-04T18:05:30.632731",
+      "details": {}
+    },
+    {
+      "test_name": "template_generation",
+      "status": "error",
+      "message": "Test error: argument of type 'Level1Template' is not iterable",
+      "duration": 0.000999,
+      "timestamp": "2025-10-04T18:05:30.634731",
+      "details": {}
+    },
+    {
+      "test_name": "template_validation",
+      "status": "error",
+      "message": "Test error: 'TemplateEngine' object has no attribute 'validate_template'",
+      "duration": 0.001001,
+      "timestamp": "2025-10-04T18:05:30.635732",
+      "details": {}
+    },
+    {
+      "test_name": "mode_manager",
+      "status": "passed",
+      "message": "Test passed",
+      "duration": 2.10633,
+      "timestamp": "2025-10-04T18:05:32.742062",
+      "details": {}
+    }
+  ]
+}

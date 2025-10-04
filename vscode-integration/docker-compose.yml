@@ -1,0 +1,134 @@
+version: "3.8"
+
+services:
+  # Supabase PostgreSQL с pgvector
+  postgres:
+    image: supabase/postgres:15.1.0.147
+    container_name: supabase-db
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ragcode123}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # n8n Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin123}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=postgres
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-ragcode123}
+      - WEBHOOK_URL=http://localhost:5678/
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/.n8n/workflows
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # LightRAG Service
+  lightrag:
+    build:
+      context: ./lightrag
+      dockerfile: Dockerfile
+    container_name: lightrag
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WORKING_DIR=/app/working_dir
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-ragcode123}@postgres:5432/vectors
+    ports:
+      - "8000:8000"
+    volumes:
+      - lightrag_storage:/app/storage
+      - lightrag_working:/app/working_dir
+      - ./lightrag/config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # RAG Proxy для VS Code интеграции
+  rag-proxy:
+    build:
+      context: ./rag-proxy
+      dockerfile: Dockerfile
+    container_name: rag-proxy
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SUPABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-ragcode123}@postgres:5432/postgres
+      - N8N_URL=http://n8n:5678
+      - LIGHTRAG_URL=http://lightrag:8000
+      - N8N_USER=${N8N_USER:-admin}
+      - N8N_PASSWORD=${N8N_PASSWORD:-admin123}
+    ports:
+      - "9000:8000"
+    depends_on:
+      - lightrag
+      - n8n
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis для кеширования
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+  n8n_data:
+  lightrag_storage:
+  lightrag_working:
+  redis_data:
+
+networks:
+  rag-network:
+    driver: bridge

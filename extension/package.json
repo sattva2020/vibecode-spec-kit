@@ -1,0 +1,192 @@
+{
+  "name": "code-memory-bank",
+  "displayName": "Code Memory Bank",
+  "description": "Structured memory system for complex projects. Automates workflows (VAN→PLAN→CREATIVE→IMPLEMENT→REFLECT→ARCHIVE), preserves context across sessions, enhances GitHub Copilot with persistent project memory.",
+  "version": "0.1.0",
+  "publisher": "code-memory-bank",
+  "icon": "resources/icon.png",
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18.0.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "code-memory-bank",
+    "memory",
+    "context",
+    "copilot",
+    "workflow",
+    "project-management",
+    "task-tracking",
+    "productivity",
+    "structured-development"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/code-memory-bank.git"
+  },
+  "license": "MIT",
+  "preview": true,
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:memoryBank.van",
+    "onCommand:memoryBank.plan",
+    "onCommand:memoryBank.creative",
+    "onCommand:memoryBank.implement",
+    "onCommand:memoryBank.reflect",
+    "onCommand:memoryBank.archive",
+    "onCommand:memoryBank.sync",
+    "onCommand:memoryBank.setup",
+    "onCommand:memoryBank.status"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "memoryBank.van",
+        "title": "Memory Bank: VAN Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.plan",
+        "title": "Memory Bank: PLAN Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.creative",
+        "title": "Memory Bank: CREATIVE Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.implement",
+        "title": "Memory Bank: IMPLEMENT Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.reflect",
+        "title": "Memory Bank: REFLECT Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.archive",
+        "title": "Memory Bank: ARCHIVE Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.sync",
+        "title": "Memory Bank: SYNC Mode",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.setup",
+        "title": "Memory Bank: Setup Wizard",
+        "category": "Memory Bank"
+      },
+      {
+        "command": "memoryBank.status",
+        "title": "Memory Bank: Show Status",
+        "category": "Memory Bank"
+      }
+    ],
+    "configuration": {
+      "title": "Memory Bank",
+      "properties": {
+        "memoryBank.language": {
+          "type": "string",
+          "enum": [
+            "en",
+            "ru",
+            "uk",
+            "de",
+            "fr",
+            "es",
+            "pt",
+            "it",
+            "ja",
+            "zh",
+            "ko",
+            "ar",
+            "hi",
+            "pl",
+            "tr"
+          ],
+          "enumDescriptions": [
+            "English",
+            "Русский (Russian)",
+            "Українська (Ukrainian)",
+            "Deutsch (German)",
+            "Français (French)",
+            "Español (Spanish)",
+            "Português (Portuguese)",
+            "Italiano (Italian)",
+            "日本語 (Japanese)",
+            "中文 (Chinese)",
+            "한국어 (Korean)",
+            "العربية (Arabic)",
+            "हिन्दी (Hindi)",
+            "Polski (Polish)",
+            "Türkçe (Turkish)"
+          ],
+          "default": "en",
+          "description": "Language for Memory Bank documents and messages"
+        },
+        "memoryBank.defaultComplexity": {
+          "type": "string",
+          "enum": [
+            "Level 1",
+            "Level 2",
+            "Level 3",
+            "Level 4"
+          ],
+          "enumDescriptions": [
+            "Level 1: Quick bug fix (1-2 files, <30 min)",
+            "Level 2: Simple enhancement (2-5 files, 1-3 hours)",
+            "Level 3: Feature implementation (5-15 files, 1-3 days)",
+            "Level 4: System-wide changes (15+ files, multi-day)"
+          ],
+          "default": "Level 2",
+          "description": "Default complexity level for new tasks"
+        },
+        "memoryBank.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save Memory Bank files after updates"
+        },
+        "memoryBank.templatesPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to Memory Bank templates directory (leave empty for default)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "18.x",
+    "@types/mocha": "^10.0.3",
+    "@typescript-eslint/eslint-plugin": "^6.9.0",
+    "@typescript-eslint/parser": "^6.9.0",
+    "eslint": "^8.52.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "typescript": "^5.2.2",
+    "ts-loader": "^9.5.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
+    "@vscode/test-electron": "^2.3.6"
+  },
+  "dependencies": {}
+}

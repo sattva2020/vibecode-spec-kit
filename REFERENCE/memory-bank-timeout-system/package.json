@@ -1,0 +1,33 @@
+{
+  "name": "memory-bank-timeout-system",
+  "version": "1.0.0",
+  "description": "Command Timeout System + Simplified Checkpoint System для Memory Bank",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "npm run build:timeout-manager && npm run build:process-monitor && npm run build:background-executor && npm run build:integration",
+    "build:timeout-manager": "cd timeout-manager && npm run build",
+    "build:process-monitor": "cd process-monitor && npm run build", 
+    "build:background-executor": "cd background-executor && npm run build",
+    "build:integration": "cd integration-layer && npm run build",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "npm run test:timeout-manager && npm run test:process-monitor && npm run test:background-executor && npm run test:integration",
+    "test:timeout-manager": "cd timeout-manager && npm test",
+    "test:process-monitor": "cd process-monitor && npm test",
+    "test:background-executor": "cd background-executor && npm test", 
+    "test:integration": "cd integration-layer && npm test",
+    "install:all": "cd timeout-manager && npm install && cd ../process-monitor && npm install && cd ../background-executor && npm install && cd ../integration-layer && npm install"
+  },
+  "keywords": ["memory-bank", "timeout", "checkpoint", "command-execution", "process-monitoring"],
+  "author": "Memory Bank Team",
+  "license": "MIT",
+  "dependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.0.0",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
+  }
+}

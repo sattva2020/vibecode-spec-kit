@@ -1,0 +1,106 @@
+# Supabase Configuration
+SUPABASE_URL=http://localhost:8000
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+# Database Configuration
+POSTGRES_PASSWORD=vibecode123
+POSTGRES_DB=postgres
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# JWT Configuration
+JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long
+JWT_EXPIRY=3600
+
+# n8n Configuration
+N8N_USER=admin
+N8N_PASSWORD=admin123
+
+# OpenAI API Key (for LightRAG)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Ollama Configuration (optional)
+OLLAMA_HOST=localhost:11434
+OLLAMA_MODEL=qwen2.5-coder:7b
+
+# VS Code Extension Configuration
+RAG_CONTEXT_API_URL=http://localhost:9000
+
+# Supabase Studio Configuration
+STUDIO_PORT=3000
+STUDIO_DEFAULT_ORGANIZATION=Vibecode
+STUDIO_DEFAULT_PROJECT=rag-assistant
+
+# Kong API Gateway Configuration
+KONG_HTTP_PORT=8000
+KONG_HTTPS_PORT=8443
+
+# Email Configuration
+INBUCKET_PORT=9000
+INBUCKET_SMTP_PORT=2500
+INBUCKET_POP3_PORT=1100
+
+# Analytics Configuration
+LOGFLARE_API_KEY=your-super-secret-and-long-logflare-key
+LOGFLARE_URL=http://analytics:4000
+
+# Image Processing Configuration
+IMGPROXY_ENABLE_WEBP_DETECTION=true
+
+# Functions Configuration
+FUNCTIONS_VERIFY_JWT=false
+
+# Site Configuration
+SITE_URL=http://localhost:3000
+API_EXTERNAL_URL=http://localhost:8000
+ADDITIONAL_REDIRECT_URLS=
+
+# Email Settings
+ENABLE_EMAIL_SIGNUP=true
+ENABLE_EMAIL_AUTOCONFIRM=false
+SMTP_ADMIN_EMAIL=admin@example.com
+SMTP_HOST=supabase-inbucket
+SMTP_PORT=2500
+SMTP_USER=fake_mail_user
+SMTP_PASSWORD=fake_mail_password
+SMTP_SENDER_NAME=fake_sender
+
+# Phone Settings
+ENABLE_PHONE_SIGNUP=true
+ENABLE_PHONE_AUTOCONFIRM=false
+
+# Mailer URL Paths
+MAILER_URLPATHS_INVITE=/auth/v1/verify
+MAILER_URLPATHS_CONFIRMATION=/auth/v1/verify
+MAILER_URLPATHS_RECOVERY=/auth/v1/verify
+MAILER_URLPATHS_EMAIL_CHANGE=/auth/v1/verify
+
+# PGRST Configuration
+PGRST_DB_SCHEMAS=public,storage,graphql_public
+
+# Realtime Configuration
+REALTIME_PORT=4000
+
+# Storage Configuration
+FILE_SIZE_LIMIT=52428800
+STORAGE_BACKEND=file
+
+# Edge Functions Configuration
+EDGE_FUNCTIONS_PORT=9000
+
+# Analytics Configuration
+NEXT_PUBLIC_ENABLE_LOGS=true
+NEXT_ANALYTICS_BACKEND_PROVIDER=postgres
+
+# RAG System Configuration
+RAG_MAX_SUGGESTIONS=10
+RAG_TIMEOUT_SECONDS=30
+RAG_ENABLE_CACHING=true
+RAG_CACHE_TTL_SECONDS=3600
+CACHE_MAX_SIZE=1000
+CACHE_DEFAULT_TTL=1800
+CACHE_ENABLE_METRICS=true
+LIGHTRAG_TIMEOUT_SECONDS=30
+LIGHTRAG_RETRY_ATTEMPTS=3
+N8N_TIMEOUT_SECONDS=30

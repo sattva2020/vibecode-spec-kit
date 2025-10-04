@@ -1,0 +1,16 @@
+lightrag-hku
+fastapi
+uvicorn[standard]
+python-dotenv
+psycopg2-binary
+pgvector
+openai
+langchain
+langchain-openai
+redis
+supabase
+pydantic
+numpy
+python-multipart
+httpx
+asyncio

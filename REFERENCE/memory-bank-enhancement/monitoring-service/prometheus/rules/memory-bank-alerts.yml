@@ -1,0 +1,47 @@
+groups:
+  - name: memory-bank-alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: memory_bank_cpu_usage_percent > 80
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 2 minutes"
+
+      - alert: HighMemoryUsage
+        expr: memory_bank_memory_usage_percent > 85
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85% for more than 2 minutes"
+
+      - alert: HighErrorRate
+        expr: rate(memory_bank_errors_total[5m]) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for more than 1 minute"
+
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, rate(memory_bank_response_time_seconds_bucket[5m])) > 2
+        for: 3m
+        labels:
+          severity: medium
+        annotations:
+          summary: "Slow response time detected"
+          description: "95th percentile response time is above 2 seconds"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} is down for more than 1 minute"

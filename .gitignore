@@ -543,6 +543,11 @@ temp/
 # Project Specific
 # =============================================================================
 
+# Reference materials (should not be in main repo)
+REFERENCE/
+REFERENCE/**
+!REFERENCE/.gitkeep
+
 # Memory Bank temporary files
 memory-bank/temp/
 memory-bank/cache/

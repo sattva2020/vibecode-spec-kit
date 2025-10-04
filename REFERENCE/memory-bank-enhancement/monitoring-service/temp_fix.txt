@@ -1,4 +1,0 @@
-  // Get Prometheus metrics
-  getPrometheusMetrics(): Promise<string> {
-    return this.metricsCollector.getPrometheusMetrics();
-  }

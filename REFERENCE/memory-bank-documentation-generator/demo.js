@@ -1,1 +1,0 @@
-const { DocumentationGenerator } = require("./dist/index.js");async function demo() {console.log("🚀 Запуск демонстрации C4 + RFC Documentation Generator");const generator = new DocumentationGenerator();await generator.generateDocumentation("E:/My/vibecode-ide");console.log("✅ Демонстрация завершена!");}demo().catch(console.error);

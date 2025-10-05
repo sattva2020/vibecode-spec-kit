@@ -172,6 +172,7 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-password}
+      - N8N_API_KEY=${N8N_API_KEY}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-your-encryption-key}
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=supabase-db
@@ -309,7 +310,7 @@ services:
       - GOOGLE_MODEL=${GOOGLE_MODEL:-gemini-pro}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
-      - "8081:8081"
+      - "8002:8081"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
@@ -326,13 +327,13 @@ services:
           memory: 1G
 
   # ===========================================
-  # AI ROUTER SERVICE (Python)
+  # AI ROUTER SERVICE (Python) - Updated Configuration
   # ===========================================
-  ai-router:
+  ai-router-updated:
     build:
       context: ./ai-router
       dockerfile: Dockerfile
-    container_name: rag-ai-router
+    container_name: rag-ai-router-updated
     environment:
       - AI_ROUTER_HOST=0.0.0.0
       - AI_ROUTER_PORT=8081

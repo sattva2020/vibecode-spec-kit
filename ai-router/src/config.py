@@ -12,6 +12,8 @@ class ProviderType(str, Enum):
     CLAUDE = "claude"
     OPENAI = "openai"
     OLLAMA = "ollama"
+    GITHUB_COPILOT = "github_copilot"
+    CURSOR = "cursor"
 
 
 class Settings(BaseSettings):

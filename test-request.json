@@ -1,0 +1,6 @@
+{
+  "model": "qwen2.5-coder:1.5b",
+  "prompt": "Write a Python function to calculate factorial",
+  "stream": false,
+  "provider": "ollama"
+}

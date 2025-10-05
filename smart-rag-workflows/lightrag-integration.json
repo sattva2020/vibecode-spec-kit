@@ -1,0 +1,178 @@
+{
+  "name": "LightRAG Official API Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lightrag-insert",
+        "options": {}
+      },
+      "id": "webhook-insert",
+      "name": "Webhook - LightRAG Insert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Подготовка данных для официального LightRAG API\nconst text = $input.first().json.text || $input.first().json.body?.text;\nconst metadata = $input.first().json.metadata || $input.first().json.body?.metadata || {};\n\n// Валидация\nif (!text || text.trim().length === 0) {\n  throw new Error('Text is required for LightRAG insert');\n}\n\n// Подготовка payload для LightRAG API\nconst lightragPayload = {\n  text: text.trim()\n};\n\n// Подготовка для нашего Smart RAG (дублирование)\nconst smartRagPayload = {\n  text: text.trim(),\n  metadata: {\n    timestamp: new Date().toISOString(),\n    source: metadata.source || 'lightrag_integration',\n    category: metadata.category || 'general',\n    ...metadata\n  }\n};\n\nreturn {\n  json: {\n    lightrag_payload: lightragPayload,\n    smart_rag_payload: smartRagPayload,\n    original_text: text.trim()\n  }\n};"
+      },
+      "id": "data-preparer",
+      "name": "Data Preparer",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-lightrag:8000/insert",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.lightrag_payload }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "lightrag-inserter",
+      "name": "LightRAG Official Insert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/webhook/rag-insert-fixed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.smart_rag_payload }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "smart-rag-inserter",
+      "name": "Smart RAG Insert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Объединение результатов от обеих систем\nconst lightragResult = $('LightRAG Official Insert').first().json || {};\nconst smartRagResult = $('Smart RAG Insert').first().json || {};\nconst originalData = $('Data Preparer').first().json;\n\n// Подготовка итогового результата\nconst combinedResult = {\n  status: 'success',\n  message: 'Knowledge inserted into both LightRAG and Smart RAG systems',\n  original_text: originalData.original_text,\n  lightrag_result: {\n    success: !lightragResult.error,\n    response: lightragResult,\n    error: lightragResult.error || null\n  },\n  smart_rag_result: {\n    success: smartRagResult.status === 'success',\n    knowledge_id: smartRagResult.knowledge_id,\n    analysis: smartRagResult.analysis,\n    error: smartRagResult.error || null\n  },\n  integration_metadata: {\n    timestamp: new Date().toISOString(),\n    systems_used: ['lightrag_official', 'smart_rag_custom'],\n    dual_storage: true\n  }\n};\n\nreturn {\n  json: combinedResult\n};"
+      },
+      "id": "result-combiner",
+      "name": "Result Combiner",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "status": "={{ $json.status }}",
+          "message": "={{ $json.message }}",
+          "lightrag_result": "={{ $json.lightrag_result }}",
+          "smart_rag_result": "={{ $json.smart_rag_result }}",
+          "integration_metadata": "={{ $json.integration_metadata }}"
+        },
+        "options": {}
+      },
+      "id": "response-combined",
+      "name": "Response - Combined",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - LightRAG Insert": {
+      "main": [
+        [
+          {
+            "node": "Data Preparer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Preparer": {
+      "main": [
+        [
+          {
+            "node": "LightRAG Official Insert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Smart RAG Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LightRAG Official Insert": {
+      "main": [
+        [
+          {
+            "node": "Result Combiner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart RAG Insert": {
+      "main": [
+        [
+          {
+            "node": "Result Combiner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Result Combiner": {
+      "main": [
+        [
+          {
+            "node": "Response - Combined",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

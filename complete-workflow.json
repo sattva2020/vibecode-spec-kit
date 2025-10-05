@@ -1,0 +1,215 @@
+{
+  "name": "Complete RAG Workflow (Ollama + LightRAG + Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "generate-and-store"
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://rag-ollama:11434/api/generate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:1.5b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "ollama-node",
+      "name": "Ollama Code Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "dbK4JPYsacz570Ce",
+          "name": "Ollama HTTP API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://rag-lightrag:8000/api/ingest",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $json.response }}"
+            },
+            {
+              "name": "metadata",
+              "value": {
+                "source": "ollama_generation",
+                "prompt": "={{ $('Webhook').item.json.prompt }}",
+                "model": "qwen2.5-coder:1.5b"
+              }
+            }
+          ]
+        }
+      },
+      "id": "lightrag-node",
+      "name": "Store in LightRAG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "4UYWWahra8xX8GpA",
+          "name": "LightRAG API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://rag-supabase-db:5432/rest/v1/generated_code",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $('Ollama Code Generation').item.json.response }}"
+            },
+            {
+              "name": "language",
+              "value": "python"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "lightrag_id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-node",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Tn0j2P5EnniGRcnc",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "code": "={{ $('Ollama Code Generation').item.json.response }}",
+          "lightrag_id": "={{ $('Store in LightRAG').item.json.id }}",
+          "supabase_id": "={{ $('Save to Supabase').item.json.id }}",
+          "status": "success",
+          "message": "Code generated, stored in LightRAG graph, and saved to Supabase"
+        }
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Ollama Code Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Code Generation": {
+      "main": [
+        [
+          {
+            "node": "Store in LightRAG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in LightRAG": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

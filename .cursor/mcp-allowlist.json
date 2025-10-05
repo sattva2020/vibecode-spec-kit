@@ -1,0 +1,44 @@
+{
+  "mcpTools": {
+    "allowlist": [
+      "sequential-thinking:sequentialthinking",
+      "memory:*",
+      "github:*",
+      "filesystem:*",
+      "supabase:*",
+      "playwright:*",
+      "context7:*"
+    ],
+    "autoApprove": true,
+    "trustedDomains": [
+      "localhost",
+      "127.0.0.1"
+    ]
+  },
+  "toolPermissions": {
+    "sequential-thinking": {
+      "sequentialthinking": {
+        "autoApprove": true,
+        "reason": "Required for VAN mode analysis and complex problem solving"
+      }
+    },
+    "memory": {
+      "*": {
+        "autoApprove": true,
+        "reason": "Memory bank operations for project context"
+      }
+    },
+        "github": {
+          "*": {
+            "autoApprove": true,
+            "reason": "GitHub integration for repository management"
+          }
+        },
+        "context7": {
+          "*": {
+            "autoApprove": true,
+            "reason": "Context7 for modern technology documentation and API context"
+          }
+        }
+  }
+}

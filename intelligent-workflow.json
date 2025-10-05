@@ -1,0 +1,252 @@
+{
+  "name": "Intelligent Code Generation (1.5B vs 7B)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "smart-generate"
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.complexity }}",
+              "operation": "equal",
+              "value2": "simple"
+            }
+          ]
+        }
+      },
+      "id": "complexity-check",
+      "name": "Check Complexity",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://rag-ollama:11434/api/generate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:1.5b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "ollama-fast-node",
+      "name": "Fast Generation (1.5B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "dbK4JPYsacz570Ce",
+          "name": "Ollama HTTP API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://rag-ollama:11434/api/generate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:7b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "ollama-quality-node",
+      "name": "Quality Generation (7B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "dbK4JPYsacz570Ce",
+          "name": "Ollama HTTP API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "http://rag-supabase-db:5432/rest/v1/generated_code",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.response }}"
+            },
+            {
+              "name": "language",
+              "value": "python"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "model_used",
+              "value": "={{ $('Webhook').item.json.complexity === 'simple' ? 'qwen2.5-coder:1.5b' : 'qwen2.5-coder:7b' }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-node",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Tn0j2P5EnniGRcnc",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "code": "={{ $json.response }}",
+          "model_used": "={{ $('Webhook').item.json.complexity === 'simple' ? 'qwen2.5-coder:1.5b' : 'qwen2.5-coder:7b' }}",
+          "complexity": "={{ $('Webhook').item.json.complexity }}",
+          "supabase_id": "={{ $('Save to Supabase').item.json.id }}",
+          "status": "success",
+          "message": "Code generated with intelligent model selection"
+        }
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Complexity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Complexity": {
+      "main": [
+        [
+          {
+            "node": "Fast Generation (1.5B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quality Generation (7B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fast Generation (1.5B)": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Generation (7B)": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

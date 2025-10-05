@@ -1,0 +1,65 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus сам себя
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # AI Router Service
+  - job_name: 'ai-router'
+    static_configs:
+      - targets: ['ai-router:8000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Supabase Database
+  - job_name: 'supabase-db'
+    static_configs:
+      - targets: ['supabase-db:5432']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Ollama Service
+  - job_name: 'ollama'
+    static_configs:
+      - targets: ['ollama:11434']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # LightRAG Service
+  - job_name: 'lightrag'
+    static_configs:
+      - targets: ['lightrag:8001']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # n8n Workflows
+  - job_name: 'n8n'
+    static_configs:
+      - targets: ['n8n:5678']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Docker containers
+  - job_name: 'docker-containers'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+    scrape_interval: 30s
+
+  # Node Exporter (системные метрики)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s

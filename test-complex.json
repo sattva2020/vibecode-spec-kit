@@ -1,0 +1,4 @@
+{
+  "prompt": "Create a complete FastAPI microservice with authentication, database models, CRUD operations, error handling, and API documentation. Include JWT tokens, password hashing, and proper validation.",
+  "complexity": "complex"
+}

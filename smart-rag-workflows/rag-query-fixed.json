@@ -1,0 +1,154 @@
+{
+  "name": "Smart RAG Query - Fixed Auth",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rag-query-fixed",
+        "options": {}
+      },
+      "id": "webhook-query",
+      "name": "Webhook - Query",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "rag-query-fixed-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Обработка и валидация запроса\nconst query = $input.first().json.query || $input.first().json.body?.query;\nconst options = $input.first().json.options || $input.first().json.body?.options || {};\n\n// Валидация\nif (!query || query.trim().length === 0) {\n  throw new Error('Query is required for RAG search');\n}\n\n// Подготовка параметров поиска\nconst searchOptions = {\n  limit: options.limit || 10,\n  threshold: options.threshold || 0.7,\n  category: options.category || null,\n  tags: options.tags || [],\n  date_from: options.date_from || null,\n  date_to: options.date_to || null\n};\n\n// Подготовка для анализа запроса\nconst analysisData = {\n  original_query: query.trim(),\n  search_options: searchOptions,\n  timestamp: new Date().toISOString()\n};\n\nreturn {\n  json: analysisData\n};"
+      },
+      "id": "query-processor",
+      "name": "Query Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Построение Supabase запроса для поиска\nconst originalQuery = $('Query Processor').first().json.original_query;\nconst searchOptions = $('Query Processor').first().json.search_options;\n\n// Создание фильтров для Supabase\nlet supabaseQuery = `select=*`;\nlet supabaseFilters = [];\n\n// Фильтр по тексту (full-text search)\nsupabaseFilters.push(`or=(original_text.ilike.*${originalQuery}*,processed_text.ilike.*${originalQuery}*,analysis->summary.ilike.*${originalQuery}*)`);\n\n// Лимит результатов\nconst limit = searchOptions.limit;\nsupabaseQuery += `&limit=${limit}`;\n\n// Сортировка по дате\nsupabaseQuery += `&order=created_at.desc`;\n\n// Добавление фильтров\nif (supabaseFilters.length > 0) {\n  supabaseQuery += `&${supabaseFilters.join('&')}`;\n}\n\nreturn {\n  json: {\n    original_query: originalQuery,\n    search_options: searchOptions,\n    supabase_query: supabaseQuery\n  }\n};"
+      },
+      "id": "search-builder",
+      "name": "Search Query Builder",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://rag-supabase-db:5432/rest/v1/knowledge_base?{{ $json.supabase_query }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "{{ env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-searcher",
+      "name": "Supabase Knowledge Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "3JJztQpRDwckWexL",
+          "name": "Supabase Bearer Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Обработка результатов поиска\nconst searchResults = $input.first().json;\nconst originalQuery = $('Search Query Builder').first().json.original_query;\n\n// Проверка наличия результатов\nif (!searchResults || searchResults.length === 0) {\n  return {\n    json: {\n      query: originalQuery,\n      results: [],\n      total_found: 0,\n      message: 'No relevant knowledge found for your query',\n      suggestions: [\n        'Try different keywords',\n        'Check spelling',\n        'Use broader terms',\n        'Try related categories'\n      ]\n    }\n  };\n}\n\n// Простое ранжирование результатов\nconst rankedResults = searchResults.map((result, index) => {\n  let score = 0;\n  \n  // Базовый score по позиции\n  score += (searchResults.length - index) * 0.1;\n  \n  // Проверка совпадения в заголовке/суммарии\n  const summary = result.analysis?.summary || '';\n  const originalText = result.original_text || '';\n  \n  if (summary.toLowerCase().includes(originalQuery.toLowerCase())) {\n    score += 0.3;\n  }\n  \n  if (originalText.toLowerCase().includes(originalQuery.toLowerCase())) {\n    score += 0.2;\n  }\n  \n  return {\n    ...result,\n    relevance_score: Math.min(score, 1.0),\n    rank: index + 1\n  };\n});\n\n// Сортировка по relevance score\nrankedResults.sort((a, b) => b.relevance_score - a.relevance_score);\n\n// Подготовка финального ответа\nconst finalResults = rankedResults.map(result => ({\n  id: result.id,\n  summary: result.analysis?.summary || 'No summary available',\n  original_text: result.original_text?.substring(0, 500) + (result.original_text?.length > 500 ? '...' : ''),\n  category: result.analysis?.category || 'general',\n  tags: result.analysis?.tags || [],\n  key_concepts: result.analysis?.key_concepts || [],\n  metadata: result.metadata,\n  created_at: result.created_at,\n  relevance_score: result.relevance_score\n}));\n\nreturn {\n  json: {\n    query: originalQuery,\n    results: finalResults,\n    total_found: finalResults.length,\n    search_strategy: 'text_match',\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "results-processor",
+      "name": "Results Processor & Ranker",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "status": "success",
+          "query": "={{ $json.query }}",
+          "results": "={{ $json.results }}",
+          "total_found": "={{ $json.total_found }}",
+          "search_strategy": "={{ $json.search_strategy }}",
+          "timestamp": "={{ $json.timestamp }}"
+        },
+        "options": {}
+      },
+      "id": "response-query",
+      "name": "Response - Query",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Query": {
+      "main": [
+        [
+          {
+            "node": "Query Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Processor": {
+      "main": [
+        [
+          {
+            "node": "Search Query Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Query Builder": {
+      "main": [
+        [
+          {
+            "node": "Supabase Knowledge Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Knowledge Search": {
+      "main": [
+        [
+          {
+            "node": "Results Processor & Ranker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Results Processor & Ranker": {
+      "main": [
+        [
+          {
+            "node": "Response - Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

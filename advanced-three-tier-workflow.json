@@ -1,0 +1,325 @@
+{
+  "name": "Advanced Three-Tier Code Generation (1.5B vs 7B vs 3B)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "advanced-generate",
+        "httpMethod": "POST"
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.complexity }}",
+              "operation": "equal",
+              "value2": "simple"
+            }
+          ]
+        }
+      },
+      "id": "complexity-check-simple",
+      "name": "Check Simple",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.complexity }}",
+              "operation": "equal",
+              "value2": "medium"
+            }
+          ]
+        }
+      },
+      "id": "complexity-check-medium",
+      "name": "Check Medium",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://rag-ollama:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:1.5b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "ollama-fast-node",
+      "name": "Fast Generation (1.5B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://rag-ollama:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:7b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "ollama-medium-node",
+      "name": "Medium Generation (7B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "url": "http://rag-ollama:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen-coder:3b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "ollama-premium-node",
+      "name": "Premium Generation (3B)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 600]
+    },
+    {
+      "parameters": {
+        "url": "http://rag-supabase-db:5432/rest/v1/generated_code",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ $env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "={{ $json.response }}"
+            },
+            {
+              "name": "language",
+              "value": "python"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $('Webhook').item.json.prompt }}"
+            },
+            {
+              "name": "model_used",
+              "value": "={{ $('Webhook').item.json.complexity === 'simple' ? 'qwen2.5-coder:1.5b' : $('Webhook').item.json.complexity === 'medium' ? 'qwen2.5-coder:7b' : 'qwen-coder:3b' }}"
+            },
+            {
+              "name": "complexity",
+              "value": "={{ $('Webhook').item.json.complexity }}"
+            }
+          ]
+        }
+      },
+      "id": "supabase-node",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "code": "={{ $json.response }}",
+          "model_used": "={{ $('Webhook').item.json.complexity === 'simple' ? 'qwen2.5-coder:1.5b' : $('Webhook').item.json.complexity === 'medium' ? 'qwen2.5-coder:7b' : 'qwen-coder:3b' }}",
+          "complexity": "={{ $('Webhook').item.json.complexity }}",
+          "supabase_id": "={{ $('Save to Supabase').item.json.id }}",
+          "status": "success",
+          "message": "Code generated with intelligent three-tier model selection",
+          "performance_tier": "={{ $('Webhook').item.json.complexity === 'simple' ? 'Fast' : $('Webhook').item.json.complexity === 'medium' ? 'Balanced' : 'Premium' }}"
+        }
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Simple",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Simple": {
+      "main": [
+        [
+          {
+            "node": "Fast Generation (1.5B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Medium",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Medium": {
+      "main": [
+        [
+          {
+            "node": "Medium Generation (7B)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Premium Generation (3B)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fast Generation (1.5B)": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Medium Generation (7B)": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Premium Generation (3B)": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

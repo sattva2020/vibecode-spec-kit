@@ -1,0 +1,191 @@
+{
+  "name": "Smart RAG - Insert Knowledge",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rag-insert",
+        "options": {}
+      },
+      "id": "webhook-insert",
+      "name": "Webhook - Insert",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "rag-insert-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Анализ и подготовка текста для вставки\nconst text = $input.first().json.text || $input.first().json.body?.text;\nconst metadata = $input.first().json.metadata || $input.first().json.body?.metadata || {};\n\n// Валидация входных данных\nif (!text || text.trim().length === 0) {\n  throw new Error('Text is required for RAG insert');\n}\n\n// Подготовка данных для анализа\nconst analysisData = {\n  text: text.trim(),\n  metadata: {\n    timestamp: new Date().toISOString(),\n    source: metadata.source || 'manual',\n    category: metadata.category || 'general',\n    ...metadata\n  }\n};\n\n// Подготовка для векторизации\nconst vectorizationData = {\n  text: analysisData.text,\n  metadata: analysisData.metadata\n};\n\nreturn {\n  json: {\n    original_text: text,\n    processed_text: analysisData.text,\n    metadata: analysisData.metadata,\n    vectorization_data: vectorizationData\n  }\n};"
+      },
+      "id": "text-processor",
+      "name": "Text Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-ollama:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:7b"
+            },
+            {
+              "name": "prompt",
+              "value": "=Analyze the following text and extract key concepts, entities, and relationships. Return a structured JSON with:\n1. key_concepts: array of main concepts\n2. entities: array of named entities\n3. relationships: array of relationships between entities\n4. summary: brief summary\n5. category: suggested category\n6. tags: relevant tags\n\nText: {{ $json.processed_text }}\n\nMetadata: {{ JSON.stringify($json.metadata) }}\n\nReturn only valid JSON:"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ollama-analyzer",
+      "name": "Ollama Text Analyzer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Обработка ответа от Ollama и извлечение структурированных данных\nconst ollamaResponse = $input.first().json.response;\nlet analysis = {};\n\ntry {\n  // Попытка парсинга JSON ответа\n  const jsonMatch = ollamaResponse.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    analysis = JSON.parse(jsonMatch[0]);\n  } else {\n    // Fallback: создание базовой структуры\n    analysis = {\n      key_concepts: [\"general_concept\"],\n      entities: [\"text_entity\"],\n      relationships: [],\n      summary: ollamaResponse.substring(0, 200),\n      category: \"general\",\n      tags: [\"text\", \"knowledge\"]\n    };\n  }\n} catch (error) {\n  // Fallback при ошибке парсинга\n  analysis = {\n    key_concepts: [\"general_concept\"],\n    entities: [\"text_entity\"],\n    relationships: [],\n    summary: ollamaResponse.substring(0, 200),\n    category: \"general\",\n    tags: [\"text\", \"knowledge\"]\n  };\n}\n\n// Подготовка данных для сохранения\nconst knowledgeEntry = {\n  id: `knowledge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  original_text: $('Text Processor').first().json.original_text,\n  processed_text: $('Text Processor').first().json.processed_text,\n  analysis: analysis,\n  metadata: $('Text Processor').first().json.metadata,\n  created_at: new Date().toISOString(),\n  updated_at: new Date().toISOString()\n};\n\nreturn {\n  json: knowledgeEntry\n};"
+      },
+      "id": "analysis-processor",
+      "name": "Analysis Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-supabase-db:5432/rest/v1/knowledge_base",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "supabase-saver",
+      "name": "Supabase Knowledge Saver",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "status": "success",
+          "message": "Knowledge inserted successfully",
+          "knowledge_id": "={{ $json.id }}",
+          "analysis": "={{ $json.analysis }}",
+          "metadata": "={{ $json.metadata }}",
+          "timestamp": "={{ $json.created_at }}"
+        },
+        "options": {}
+      },
+      "id": "response-insert",
+      "name": "Response - Insert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Insert": {
+      "main": [
+        [
+          {
+            "node": "Text Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Processor": {
+      "main": [
+        [
+          {
+            "node": "Ollama Text Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Text Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Analysis Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Processor": {
+      "main": [
+        [
+          {
+            "node": "Supabase Knowledge Saver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Knowledge Saver": {
+      "main": [
+        [
+          {
+            "node": "Response - Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

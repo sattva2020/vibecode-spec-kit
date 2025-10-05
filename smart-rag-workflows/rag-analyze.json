@@ -1,0 +1,279 @@
+{
+  "name": "Smart RAG - Analyze & Enhance Knowledge",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rag-analyze",
+        "options": {}
+      },
+      "id": "webhook-analyze",
+      "name": "Webhook - Analyze",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "rag-analyze-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Обработка запроса на анализ знаний\nconst requestData = $input.first().json;\nconst knowledgeId = requestData.knowledge_id || requestData.body?.knowledge_id;\nconst analysisType = requestData.analysis_type || requestData.body?.analysis_type || 'comprehensive';\nconst options = requestData.options || requestData.body?.options || {};\n\n// Валидация\nif (!knowledgeId) {\n  throw new Error('knowledge_id is required for analysis');\n}\n\n// Подготовка параметров анализа\nconst analysisOptions = {\n  analysis_type: analysisType,\n  include_relationships: options.include_relationships !== false,\n  include_similarity: options.include_similarity !== false,\n  include_improvements: options.include_improvements !== false,\n  include_gaps: options.include_gaps !== false,\n  deep_analysis: options.deep_analysis || false\n};\n\nreturn {\n  json: {\n    knowledge_id: knowledgeId,\n    analysis_options: analysisOptions,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "analyze-processor",
+      "name": "Analysis Request Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://rag-supabase-db:5432/rest/v1/knowledge_base?id=eq.{{ $json.knowledge_id }}&select=*",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "knowledge-fetcher",
+      "name": "Fetch Knowledge Entry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Проверка и подготовка данных для анализа\nconst knowledgeData = $input.first().json;\nconst analysisOptions = $('Analysis Request Processor').first().json.analysis_options;\n\n// Проверка наличия записи\nif (!knowledgeData || knowledgeData.length === 0) {\n  throw new Error('Knowledge entry not found');\n}\n\nconst knowledgeEntry = knowledgeData[0];\n\n// Подготовка данных для анализа\nconst analysisData = {\n  knowledge_id: knowledgeEntry.id,\n  original_text: knowledgeEntry.original_text,\n  processed_text: knowledgeEntry.processed_text,\n  existing_analysis: knowledgeEntry.analysis || {},\n  metadata: knowledgeEntry.metadata || {},\n  created_at: knowledgeEntry.created_at,\n  analysis_options: analysisOptions\n};\n\n// Подготовка промпта для глубокого анализа\nconst analysisPrompt = `Perform a comprehensive analysis of this knowledge entry and provide improvements:\n\nOriginal Text: ${analysisData.original_text}\n\nExisting Analysis: ${JSON.stringify(analysisData.existing_analysis)}\n\nMetadata: ${JSON.stringify(analysisData.metadata)}\n\nAnalysis Type: ${analysisOptions.analysis_type}\n\nPlease provide a JSON response with:\n1. enhanced_analysis: improved version of the analysis\n2. relationships: connections to other concepts\n3. gaps: missing information or improvements needed\n4. suggestions: specific suggestions for enhancement\n5. quality_score: overall quality score (0-10)\n6. category_suggestions: better category classification\n7. tag_suggestions: additional relevant tags\n8. similar_concepts: related concepts to explore\n\nReturn only valid JSON:`;\n\nreturn {\n  json: {\n    ...analysisData,\n    analysis_prompt: analysisPrompt\n  }\n};"
+      },
+      "id": "data-preparer",
+      "name": "Data Preparation & Prompt Builder",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-ollama:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:7b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.analysis_prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ollama-analyzer",
+      "name": "Ollama Deep Analyzer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Обработка результатов анализа и подготовка улучшений\nconst analysisResponse = $input.first().json.response;\nconst knowledgeData = $('Data Preparation & Prompt Builder').first().json;\n\nlet enhancedAnalysis = {};\n\ntry {\n  const jsonMatch = analysisResponse.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    enhancedAnalysis = JSON.parse(jsonMatch[0]);\n  } else {\n    // Fallback анализ\n    enhancedAnalysis = {\n      enhanced_analysis: JSON.parse(JSON.stringify(knowledgeData.existing_analysis)),\n      relationships: [],\n      gaps: ['Analysis parsing failed'],\n      suggestions: ['Manual review required'],\n      quality_score: 5,\n      category_suggestions: [knowledgeData.existing_analysis?.category || 'general'],\n      tag_suggestions: knowledgeData.existing_analysis?.tags || [],\n      similar_concepts: []\n    };\n  }\n} catch (error) {\n  enhancedAnalysis = {\n    enhanced_analysis: knowledgeData.existing_analysis,\n    relationships: [],\n    gaps: ['Analysis failed: ' + error.message],\n    suggestions: ['Manual review required'],\n    quality_score: 3,\n    category_suggestions: ['general'],\n    tag_suggestions: [],\n    similar_concepts: []\n  };\n}\n\n// Подготовка данных для поиска связанных знаний\nconst searchTerms = [\n  ...(enhancedAnalysis.enhanced_analysis?.key_concepts || []),\n  ...(enhancedAnalysis.similar_concepts || [])\n].slice(0, 3); // Ограничиваем количество для производительности\n\n// Создание финального результата анализа\nconst analysisResult = {\n  knowledge_id: knowledgeData.knowledge_id,\n  original_analysis: knowledgeData.existing_analysis,\n  enhanced_analysis: enhancedAnalysis.enhanced_analysis,\n  relationships: enhancedAnalysis.relationships,\n  gaps: enhancedAnalysis.gaps,\n  suggestions: enhancedAnalysis.suggestions,\n  quality_score: enhancedAnalysis.quality_score,\n  category_suggestions: enhancedAnalysis.category_suggestions,\n  tag_suggestions: enhancedAnalysis.tag_suggestions,\n  similar_concepts: enhancedAnalysis.similar_concepts,\n  search_terms_for_related: searchTerms,\n  analysis_timestamp: new Date().toISOString(),\n  analysis_type: knowledgeData.analysis_options.analysis_type\n};\n\nreturn {\n  json: analysisResult\n};"
+      },
+      "id": "analysis-processor",
+      "name": "Analysis Results Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Поиск связанных знаний на основе анализа\nconst analysisResult = $input.first().json;\nconst searchTerms = analysisResult.search_terms_for_related;\n\nif (!searchTerms || searchTerms.length === 0) {\n  return {\n    json: {\n      ...analysisResult,\n      related_knowledge: [],\n      relationships_found: 0\n    }\n  };\n}\n\n// Построение запроса для поиска связанных знаний\nconst searchQuery = searchTerms.map(term => `original_text.ilike.*${term}*`).join(',');\nconst relatedQuery = `select=id,analysis,original_text,created_at&or=(${searchQuery})&limit=5`;\n\nreturn {\n  json: {\n    ...analysisResult,\n    related_search_query: relatedQuery\n  }\n};"
+      },
+      "id": "related-search-builder",
+      "name": "Related Knowledge Search Builder",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://rag-supabase-db:5432/rest/v1/knowledge_base?{{ $json.related_search_query }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ env.SUPABASE_ANON_KEY }}"
+            },
+            {
+              "name": "apikey",
+              "value": "{{ env.SUPABASE_ANON_KEY }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "related-searcher",
+      "name": "Search Related Knowledge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Финальная обработка результатов анализа\nconst relatedKnowledge = $input.first().json || [];\nconst analysisData = $('Analysis Results Processor').first().json;\n\n// Фильтрация связанных знаний (исключаем текущую запись)\nconst filteredRelated = relatedKnowledge\n  .filter(item => item.id !== analysisData.knowledge_id)\n  .map(item => ({\n    id: item.id,\n    summary: item.analysis?.summary || item.original_text?.substring(0, 200),\n    category: item.analysis?.category || 'general',\n    tags: item.analysis?.tags || [],\n    created_at: item.created_at,\n    relevance: 'related'\n  }));\n\n// Подготовка финального ответа\nconst finalAnalysis = {\n  knowledge_id: analysisData.knowledge_id,\n  analysis_summary: {\n    quality_score: analysisData.quality_score,\n    gaps_identified: analysisData.gaps.length,\n    suggestions_count: analysisData.suggestions.length,\n    relationships_found: filteredRelated.length,\n    analysis_type: analysisData.analysis_type\n  },\n  original_analysis: analysisData.original_analysis,\n  enhanced_analysis: analysisData.enhanced_analysis,\n  improvements: {\n    relationships: analysisData.relationships,\n    gaps: analysisData.gaps,\n    suggestions: analysisData.suggestions,\n    category_suggestions: analysisData.category_suggestions,\n    tag_suggestions: analysisData.tag_suggestions\n  },\n  related_knowledge: filteredRelated,\n  similar_concepts: analysisData.similar_concepts,\n  recommendations: {\n    immediate_actions: analysisData.suggestions.slice(0, 3),\n    research_areas: analysisData.gaps.slice(0, 3),\n    related_topics: filteredRelated.slice(0, 3).map(item => item.summary)\n  },\n  analysis_metadata: {\n    timestamp: analysisData.analysis_timestamp,\n    analysis_type: analysisData.analysis_type,\n    total_related_found: filteredRelated.length\n  }\n};\n\nreturn {\n  json: finalAnalysis\n};"
+      },
+      "id": "final-processor",
+      "name": "Final Analysis Processor",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "status": "success",
+          "knowledge_id": "={{ $json.knowledge_id }}",
+          "analysis_summary": "={{ $json.analysis_summary }}",
+          "enhanced_analysis": "={{ $json.enhanced_analysis }}",
+          "improvements": "={{ $json.improvements }}",
+          "related_knowledge": "={{ $json.related_knowledge }}",
+          "recommendations": "={{ $json.recommendations }}",
+          "analysis_metadata": "={{ $json.analysis_metadata }}"
+        },
+        "options": {}
+      },
+      "id": "response-analyze",
+      "name": "Response - Analysis",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Analyze": {
+      "main": [
+        [
+          {
+            "node": "Analysis Request Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Request Processor": {
+      "main": [
+        [
+          {
+            "node": "Fetch Knowledge Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Knowledge Entry": {
+      "main": [
+        [
+          {
+            "node": "Data Preparation & Prompt Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Preparation & Prompt Builder": {
+      "main": [
+        [
+          {
+            "node": "Ollama Deep Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Deep Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Analysis Results Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Results Processor": {
+      "main": [
+        [
+          {
+            "node": "Related Knowledge Search Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Related Knowledge Search Builder": {
+      "main": [
+        [
+          {
+            "node": "Search Related Knowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Related Knowledge": {
+      "main": [
+        [
+          {
+            "node": "Final Analysis Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Analysis Processor": {
+      "main": [
+        [
+          {
+            "node": "Response - Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

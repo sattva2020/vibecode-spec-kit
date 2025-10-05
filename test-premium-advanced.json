@@ -1,0 +1,4 @@
+{
+  "prompt": "Design and implement a complete microservices architecture with Docker containers, including: API Gateway with rate limiting, User Service with JWT authentication, Task Service with real-time notifications via WebSocket, Database Service with PostgreSQL and Redis caching, Message Queue with RabbitMQ, Monitoring with Prometheus and Grafana, CI/CD pipeline with GitHub Actions, and comprehensive error handling and logging",
+  "complexity": "premium"
+}

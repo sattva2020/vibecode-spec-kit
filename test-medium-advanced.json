@@ -1,0 +1,4 @@
+{
+  "prompt": "Create a REST API with FastAPI that manages a todo list with CRUD operations, includes proper error handling, validation, and basic authentication",
+  "complexity": "medium"
+}

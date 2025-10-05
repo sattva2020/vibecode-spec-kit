@@ -1,0 +1,180 @@
+{
+  "name": "LightRAG Official Query Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lightrag-query",
+        "options": {}
+      },
+      "id": "webhook-query",
+      "name": "Webhook - LightRAG Query",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Подготовка запроса для обеих систем\nconst query = $input.first().json.query || $input.first().json.body?.query;\nconst options = $input.first().json.options || $input.first().json.body?.options || {};\n\n// Валидация\nif (!query || query.trim().length === 0) {\n  throw new Error('Query is required');\n}\n\n// Подготовка для официального LightRAG API\nconst lightragPayload = {\n  query: query.trim(),\n  mode: options.mode || 'hybrid' // naive, local, global, hybrid\n};\n\n// Подготовка для Smart RAG\nconst smartRagPayload = {\n  query: query.trim(),\n  options: {\n    limit: options.limit || 10,\n    threshold: options.threshold || 0.7,\n    category: options.category || null,\n    tags: options.tags || []\n  }\n};\n\nreturn {\n  json: {\n    lightrag_payload: lightragPayload,\n    smart_rag_payload: smartRagPayload,\n    original_query: query.trim()\n  }\n};"
+      },
+      "id": "query-preparer",
+      "name": "Query Preparer",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-lightrag:8000/query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.lightrag_payload }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "lightrag-querier",
+      "name": "LightRAG Official Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/webhook/rag-query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "data",
+              "value": "={{ $json.smart_rag_payload }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "smart-rag-querier",
+      "name": "Smart RAG Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Объединение и сравнение результатов от обеих систем\nconst lightragResult = $('LightRAG Official Query').first().json || {};\nconst smartRagResult = $('Smart RAG Query').first().json || {};\nconst originalQuery = $('Query Preparer').first().json.original_query;\n\n// Анализ результатов\nconst analysis = {\n  lightrag_success: !lightragResult.error,\n  smart_rag_success: smartRagResult.status === 'success',\n  lightrag_answer: lightragResult.answer || lightragResult.response || null,\n  smart_rag_results: smartRagResult.results || [],\n  smart_rag_count: smartRagResult.total_found || 0\n};\n\n// Создание итогового ответа\nconst combinedResult = {\n  status: 'success',\n  message: 'Query processed by both LightRAG and Smart RAG systems',\n  original_query: originalQuery,\n  results: {\n    lightrag: {\n      success: analysis.lightrag_success,\n      answer: analysis.lightrag_answer,\n      error: lightragResult.error || null,\n      system: 'Official LightRAG API'\n    },\n    smart_rag: {\n      success: analysis.smart_rag_success,\n      results: analysis.smart_rag_results,\n      total_found: analysis.smart_rag_count,\n      error: smartRagResult.error || null,\n      system: 'Custom Smart RAG (n8n + Ollama + Supabase)'\n    }\n  },\n  comparison: {\n    both_systems_working: analysis.lightrag_success && analysis.smart_rag_success,\n    lightrag_only: analysis.lightrag_success && !analysis.smart_rag_success,\n    smart_rag_only: !analysis.lightrag_success && analysis.smart_rag_success,\n    neither_working: !analysis.lightrag_success && !analysis.smart_rag_success\n  },\n  recommendation: (() => {\n    if (analysis.lightrag_success && analysis.smart_rag_success) {\n      return 'Both systems working. LightRAG provides direct answer, Smart RAG provides structured results.';\n    } else if (analysis.lightrag_success) {\n      return 'Use LightRAG result - Smart RAG has issues.';\n    } else if (analysis.smart_rag_success) {\n      return 'Use Smart RAG result - LightRAG has issues.';\n    } else {\n      return 'Both systems have issues - check configuration.';\n    }\n  })(),\n  integration_metadata: {\n    timestamp: new Date().toISOString(),\n    query_mode: $('Query Preparer').first().json.lightrag_payload.mode,\n    systems_queried: ['lightrag_official', 'smart_rag_custom']\n  }\n};\n\nreturn {\n  json: combinedResult\n};"
+      },
+      "id": "result-analyzer",
+      "name": "Result Analyzer & Combiner",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "status": "={{ $json.status }}",
+          "message": "={{ $json.message }}",
+          "original_query": "={{ $json.original_query }}",
+          "results": "={{ $json.results }}",
+          "comparison": "={{ $json.comparison }}",
+          "recommendation": "={{ $json.recommendation }}",
+          "integration_metadata": "={{ $json.integration_metadata }}"
+        },
+        "options": {}
+      },
+      "id": "response-analyzed",
+      "name": "Response - Analyzed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - LightRAG Query": {
+      "main": [
+        [
+          {
+            "node": "Query Preparer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Preparer": {
+      "main": [
+        [
+          {
+            "node": "LightRAG Official Query",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Smart RAG Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LightRAG Official Query": {
+      "main": [
+        [
+          {
+            "node": "Result Analyzer & Combiner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart RAG Query": {
+      "main": [
+        [
+          {
+            "node": "Result Analyzer & Combiner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Result Analyzer & Combiner": {
+      "main": [
+        [
+          {
+            "node": "Response - Analyzed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

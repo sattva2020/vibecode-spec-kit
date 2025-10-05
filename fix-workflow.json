@@ -1,0 +1,123 @@
+{
+  "name": "Simple Test Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-simple",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 304],
+      "webhookId": "f246bb64-b4d7-40fa-b40b-697045bdbac6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-ollama:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "qwen2.5-coder:1.5b"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ollama-node",
+      "name": "Ollama Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [464, 304]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "code": "={{ $json.response }}",
+          "model_used": "qwen2.5-coder:1.5b",
+          "status": "success",
+          "message": "Code generated successfully"
+        },
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [688, 304]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Ollama Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Generation": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "meta": null,
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:8080",
+            "user-agent": "curl/8.14.1",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "68"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "prompt": "Write a Python function to calculate fibonacci numbers"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/test-simple",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "active": true
+}
